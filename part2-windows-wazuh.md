@@ -2,6 +2,29 @@
 
 ---
 
+## Kali Tool Check
+
+All tools below are pre-installed on Kali except Havoc. Everything else (impacket, crackmapexec/netexec, hydra, sqlmap, nikto) is ready to use.
+
+> `crackmapexec` and `netexec` / `nxc` are the same tool — use either.
+
+### Install Havoc (one-time)
+
+```bash
+sudo apt install -y golang mingw-w64 python3-dev python3-pip libfontconfig1
+
+git clone https://github.com/HavocFramework/Havoc.git /opt/havoc
+cd /opt/havoc
+
+# Build team server
+cd teamserver && go mod download && go build -o havoc . && cd ..
+
+# Build client
+cd client && npm install && npm run build && cd ..
+```
+
+---
+
 ## VM Specs (vSphere)
 
 | VM | OS | vCPU | RAM | Disk |
