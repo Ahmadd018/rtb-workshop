@@ -31,6 +31,60 @@ Files land in `/usr/share/havoc/`.
 
 ---
 
+## Fix payload compilation (required on Kali with GCC 14+)
+
+The apt package ships source code that is incompatible with the newer mingw-w64 compiler on current Kali. Without these fixes, clicking Generate will fail with pointer type errors. Apply once after install.
+
+**1 — Fix MemSet macro**
+
+```bash
+sudo python3 -c "
+import re
+path = '/usr/share/havoc/payloads/Demon/include/core/MiniStd.h'
+with open(path) as f: c = f.read()
+c = c.replace('#define MemSet          __stosb', '#define MemSet( p, c, l )          __stosb( (unsigned char*)(p), (c), (l) )')
+c = c.replace('#define MemZero( p, l ) __stosb( p, 0, l )', '#define MemZero( p, l )            __stosb( (unsigned char*)(p), 0, (l) )')
+with open(path, 'w') as f: f.write(c)
+"
+```
+
+**2 — Fix SysInvoke declaration**
+
+```bash
+sudo python3 -c "
+import re
+path = '/usr/share/havoc/payloads/Demon/include/core/Syscalls.h'
+with open(path) as f: c = f.read()
+c = re.sub(r'NTSTATUS SysInvoke\(\s*_Inout_\s*/\* Args\.\.\. \*/\s*\);', 'NTSTATUS SysInvoke(...);', c)
+with open(path, 'w') as f: f.write(c)
+"
+```
+
+**3 — Create a compiler wrapper**
+
+```bash
+sudo tee /usr/local/bin/havoc-gcc64 > /dev/null << 'EOF'
+#!/bin/bash
+exec /usr/bin/x86_64-w64-mingw32-gcc \
+    -Wno-incompatible-pointer-types \
+    -Wno-int-conversion \
+    -Wno-implicit-function-declaration \
+    -Wno-int-to-pointer-cast \
+    -Wno-pointer-to-int-cast \
+    "$@"
+EOF
+sudo chmod +x /usr/local/bin/havoc-gcc64
+```
+
+**4 — Point the profile at the wrapper**
+
+```bash
+sudo sed -i 's|Compiler64 = "/usr/bin/x86_64-w64-mingw32-gcc"|Compiler64 = "/usr/local/bin/havoc-gcc64"|' \
+    /usr/share/havoc/profiles/havoc.yaotl
+```
+
+---
+
 ## Run
 
 ```bash
