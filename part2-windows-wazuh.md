@@ -202,12 +202,15 @@ havoc client
 **Step 1 — Create a listener** (Kali, in Havoc client GUI)
 
 View → Listeners → Add
-- Protocol: HTTP
-- Host: `<KALI_IP>`
-- Port: 80
-- Save
+- Name: anything (e.g. `test-http`)
+- Payload: `Http`
+- **Hosts**: `<KALI_IP>` — click Add after typing it. This is what the demon calls back to, must be the IP reachable from Windows
+- Host (Bind): leave as is (auto-detects your interface)
+- PortBind: `80`
+- PortConn: `80`
+- Click Save
 
-This is what the demon will call back to.
+> Do not use `127.0.0.1` in Hosts — the Windows victim cannot reach that.
 
 **Step 2 — Generate the demon payload** (Kali, in Havoc client GUI)
 

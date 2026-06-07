@@ -53,9 +53,15 @@ Default credentials (from `profiles/havoc.yaotl`):
 ## Generate and Deploy a Demon
 
 1. In Havoc client: **View → Listeners → Add**
-   - Protocol: HTTP
-   - Host: `<KALI_IP>`
-   - Port: 80
+   - Name: anything (e.g. `test-http`)
+   - Payload: `Http`
+   - **Hosts**: type `<KALI_IP>` then click Add — this is what the demon calls back to
+   - Host (Bind): leave as is (auto-detected interface IP)
+   - PortBind: `80`
+   - PortConn: `80`
+   - Click Save
+
+   > Do not put `127.0.0.1` in Hosts — Windows victim can't reach it
 
 2. **Attack → Payload → Generate**
    - Format: Windows EXE
