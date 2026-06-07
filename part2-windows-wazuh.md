@@ -10,11 +10,11 @@ All tools below are pre-installed on Kali except Havoc. Everything else (impacke
 
 ### Install Havoc (one-time)
 
-See [installation/havoc.md](installation/havoc.md) for the full build steps.
+```bash
+sudo apt install -y havoc
+```
 
-Binaries after install:
-- Team server: `/opt/havoc/teamserver/havoc`
-- Client GUI: `/opt/havoc/client/Havoc`
+See [installation/havoc.md](installation/havoc.md) for usage details.
 
 ---
 
@@ -190,12 +190,13 @@ data.win.system.eventID: 7045
 Havoc is a C2 framework. Team server and client both run on Kali. The Windows VM only runs the demon (the generated payload that calls back to Kali). See [installation/havoc.md](installation/havoc.md) for setup.
 
 ```bash
-# Terminal 1 — start team server (Kali)
-cd /opt/havoc
-sudo ./teamserver/havoc server --profile ./profiles/havoc.yaotl -v
+# Terminal 1 — team server (Kali, run as root)
+cd /usr/share/havoc
+sudo havoc server --profile profiles/havoc.yaotl
 
-# Terminal 2 — open client GUI (Kali)
-/opt/havoc/client/Havoc
+# Terminal 2 — client GUI (Kali)
+cd /usr/share/havoc
+havoc client
 ```
 
 In Havoc client:
